@@ -30,20 +30,39 @@
 const entry =
   "Out of office: I've retired from your inbox and been rehired as a barista. Your email is #47 in my queue — I'll get to it once the grinder is dialed in. Please don't escalate; the human is on break too.";
 
+if (/[\r\n]/.test(entry)) {
+  throw new Error("Entry must be a single line (no CR or LF allowed).");
+}
+
 if (entry.length > 280) {
   throw new Error(`Entry is ${entry.length} characters, over the 280 limit.`);
 }
 
 // The program's text is the entry: print it (the harness reads stdout) and
-// also write it to /output/entry.txt when that directory is available, as
-// the competition rules describe. Either path carries the same single line.
+// also write it to <output dir>/entry.txt, as the competition rules describe.
+// Output handling (revised): the directory is created when missing, the
+// location follows MAKEFUN_OUTPUT_DIR when set (default /output), and a
+// failure to create the directory or write the file is a hard error —
+// silently dropping the entry would leave nothing for the judge to read.
 import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR?.trim() || "/output";
 
 try {
-  mkdirSync("/output", { recursive: true });
-  writeFileSync("/output/entry.txt", entry, "utf8");
-} catch {
-  // No writable /output here (e.g. local run); stdout still carries it.
+  mkdirSync(outputDir, { recursive: true });
+} catch (err) {
+  throw new Error(
+    `Cannot create output directory ${outputDir}: ${(err as Error).message}`,
+  );
+}
+
+try {
+  writeFileSync(join(outputDir, "entry.txt"), entry, "utf8");
+} catch (err) {
+  throw new Error(
+    `Cannot write entry to ${join(outputDir, "entry.txt")}: ${(err as Error).message}`,
+  );
 }
 
 console.log(entry);
